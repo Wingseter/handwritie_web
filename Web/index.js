@@ -2,7 +2,7 @@ const express = require ("express");
 const fs = require("fs");
 
 const app = express();
-const port = 3001;
+const port = 3000;
 
 app.get("/video", (req, res) => {
     const path = "./resource/pexels-cottonbro-studio-5659545-4096x2160-50fps.mp4";

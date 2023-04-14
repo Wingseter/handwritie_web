@@ -1,0 +1,14 @@
+FROM node:18.14.2-alpine
+
+WORKDIR /
+
+COPY index.js ./
+COPY package*.json ./
+
+RUN npm install --only=production
+
+COPY ./src ./src
+
+COPY ./resource ./resource
+
+CMD npm start

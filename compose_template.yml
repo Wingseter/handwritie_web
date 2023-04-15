@@ -57,3 +57,15 @@ services:
       - NODE_ENV=development
 
     restart: "no"
+    
+  rabbit:
+    image: rabbitmq:3-management
+    container_name: rabbit
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    expose:
+      - "5672"
+      - "15672"
+      
+    restart: always

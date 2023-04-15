@@ -1,71 +1,84 @@
-const express = require ("express");
-const http = require("http");
-const mongodb = require("mongodb");
+const express = require("express");
+const fs = require("fs");
+const amqp = require('amqplib');
 
-const app = express();
+if (!process.env.RABBIT) {
+    throw new Error("Please specify the name of the RabbitMQ host using environment variable RABBIT");
+}
 
-const port = process.env.PORT;
-const STORAGE_HOST = process.env.STORAGE_HOST;
-const STORAGE_PORT = process.env.STORAGE_PORT;
-const DBHOST = process.env.DBHOST;
-const DBNAME = process.env.DBNAME;
+const RABBIT = process.env.RABBIT;
 
-function main() {
-    return mongodb.MongoClient.connect(DBHOST)
-        .then(client => {
-            const db = client.db(DBNAME);
-            const videoCollection = db.collection("videos");
-        
-            app.get("/video", (req, res) => {
-                const videoId = 
-                    new mongodb.ObjectID(req.query.id);
-                videosCollection
-                    .findOne({ _id: videoId })
-                    .then(videoRecord  => {
-                        if (!videoRecord) {
-                            res.sendStatus(404);
-                            return;
-                        }
+function connectRabbit() {
 
-                        const forwardRequest = http.request({
-                            host: STORAGE_HOST,
-                            port: STORAGE_PORT,
-                            path: `/video?path=${videoRecord.videoPath}`,
-                            method: 'GET',
-                            headers: req.headers
-                        },
-                        forwardResponse => {
-                            res.writeHeader(forwardResponse.statusCode, forwardResponse.headers);
-                            forwardResponse.pipe(res);
-                        });
+    console.log(`Connecting to RabbitMQ server at ${RABBIT}.`);
 
-                    req.pipe(forwardRequest);
-                })
-                .catch(err => {
-                    console.error(err && err.stack || err);
-                    res.sendStatus(500);
-                });
-        });
-        app.listen(PORT, () => {
-            console.log(`Microservice Online`);
+    return amqp.connect(RABBIT) 
+    .then(connection => {
+        console.log("Connected to RabbitMQ.");
+
+        return connection.createChannel() 
+            .then(messageChannel => {
+                return messageChannel.assertExchange("viewed", "fanout") 
+                    .then(() => {
+                        return messageChannel;
+                    });
+            });
+    });
+}
+
+function sendViewedMessage(messageChannel, videoPath) {
+    console.log(`Publishing message on "viewed" queue.`);
+
+    const msg = { videoPath: videoPath };
+    const jsonMsg = JSON.stringify(msg);
+    messageChannel.publish("viewed", "", Buffer.from(jsonMsg)); 
+}
+
+function setupHandlers(app, messageChannel) {
+    app.get("/video", (req, res) => { 
+
+        const videoPath = "./resource/Spexels-cottonbro-studio-5659545-4096x2160-50fps.mp4";
+        fs.stat(videoPath, (err, stats) => {
+            if (err) {
+                console.error("An error occurred ");
+                res.sendStatus(500);
+                return;
+            }
+    
+            res.writeHead(200, {
+                "Content-Length": stats.size,
+                "Content-Type": "video/mp4",
+            });
+    
+            fs.createReadStream(videoPath).pipe(res);
+
+            sendViewedMessage(messageChannel, videoPath); 
         });
     });
 }
 
-app.get("/video", (req, res) => {
-    const forwardRequest = http.request({
-        host: STORAGE_HOST,
-        port: STORAGE_PORT,
-        path: '/video?path=pexels-cottonbro-studio-5659545-4096x2160-50fps.mp4',
-        method: 'GET',
-        headers: req.headers
-    }, forwardResponse => {
-        res.writeHead(forwardResponse.statusCode, forwardResponse.headers);
-        forwardResponse.pipe(res);
-    });
-    req.pipe(forwardRequest);
-});
+function startHttpServer(messageChannel) {
+    return new Promise(resolve => { 
+        const app = express();
+        setupHandlers(app, messageChannel);
 
-app.listen(port, () => {
-    console.log(`Example app listening at http://localhost:${port}`);
-});
+        const port = process.env.PORT && parseInt(process.env.PORT) || 3000;
+        app.listen(port, () => {
+            resolve(); 
+        });
+    });
+}
+
+function main() {
+    return connectRabbit()                          
+        .then(messageChannel => {                   
+            return startHttpServer(messageChannel); 
+        });
+}
+
+main()
+    .then(() => console.log("Microservice online."))
+    .catch(err => {
+        console.error("Microservice failed to start.");
+        console.error(err && err.stack || err);
+    });

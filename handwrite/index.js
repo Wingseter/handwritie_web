@@ -1,25 +1,24 @@
 const express = require ("express");
-const fs = require("fs");
+const http = require("http");
 
 const app = express();
-const port = 3000;
+
+const port = process.env.PORT;
+const STORAGE_HOST = process.env.STORAGE_HOST;
+const STORAGE_PORT = process.env.STORAGE_PORT;
 
 app.get("/video", (req, res) => {
-    const path = "./resource/pexels-cottonbro-studio-5659545-4096x2160-50fps.mp4";
-
-    fs.stat(path, (err, stats) => {
-        if (err) {
-            console.error("An error occurred ");
-            res.sendStatus(500);
-            return;
-        }
-
-        res.writeHead(200, {
-            "Content-Length": stats.size,
-            "Content-Type": "video/mp4",
-        });
-        fs.createReadStream(path).pipe(res);
+    const forwardRequest = http.request({
+        host: STORAGE_HOST,
+        port: STORAGE_PORT,
+        path: '/video?path=pexels-cottonbro-studio-5659545-4096x2160-50fps.mp4',
+        method: 'GET',
+        headers: req.headers
+    }, forwardResponse => {
+        res.writeHead(forwardResponse.statusCode, forwardResponse.headers);
+        forwardResponse.pipe(res);
     });
+    req.pipe(forwardRequest);
 });
 
 app.listen(port, () => {

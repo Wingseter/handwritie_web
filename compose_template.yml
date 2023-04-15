@@ -1,0 +1,33 @@
+version: '3'
+services:
+
+  azure-storage:
+    image: azure-storage
+    build: 
+      context: ./azure_storage
+      dockerfile: Dockerfile
+    container_name: handwrite-storage
+    ports:
+      - "4000:80"
+    
+    environment:
+      - PORT=80
+      - STORAGE_ACCOUNT_NAME=
+      - STORAGE_ACCESS_KEY=
+
+    restart: "no"
+  handwrite:
+    image: handwrite
+    build: 
+      context: ./handwrite
+      dockerfile: Dockerfile
+    container_name: handwrite
+    ports:
+      - "4001:80"
+    
+    environment:
+      - PORT=80
+      - STORAGE_HOST=handwrite-storage
+      - STORAGE_PORT=80
+
+    restart: "no"

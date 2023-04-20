@@ -49,7 +49,7 @@ resource "kubernetes_service" "rabbit" {
         }   
 
         port {
-            port        = 5672
+            port = 5672
         }
     }
 }
@@ -65,9 +65,9 @@ resource "kubernetes_service" "rabbit_dashboard" {
         }   
 
         port {
-            port        = 15672
+            port = 15672
         }
 
-        type             = "LoadBalancer"
+        type = "LoadBalancer"
     }
 }

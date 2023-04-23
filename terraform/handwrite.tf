@@ -1,6 +1,6 @@
 
 locals {
-    service_name = "handwrite"
+    service_name = "handwriter"
     login_server = azurerm_container_registry.container_registry.login_server
     username = azurerm_container_registry.container_registry.admin_username
     password = azurerm_container_registry.container_registry.admin_password
@@ -130,6 +130,6 @@ resource "kubernetes_service" "service" {
             target_port = 80
         }
 
-        type = "LoadBalancer"
+        type             = "LoadBalancer"
     }
 }
